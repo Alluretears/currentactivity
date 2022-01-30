@@ -1,0 +1,39 @@
+{
+  "name": "currentactivity",
+  "version": "1.0.0",
+  "description": "A command line tool to display the current activity for android.",
+  "main": "./build/index.js",
+  "scripts": {
+    "start": "tsc && node ./build/index.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Alluretears/currentactivity.git"
+  },
+  "keywords": [
+    "current activity",
+    "activity",
+    "fragment",
+    "android"
+  ],
+  "author": "Zech",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/Alluretears/currentactivity/issues"
+  },
+  "homepage": "https://github.com/Alluretears/currentactivity#readme",
+  "bin": {
+    "currentactivity": "./build/index.js"
+  },
+  "devDependencies": {
+    "ts-node": "^10.4.0",
+    "typescript": "^4.5.5"
+  },
+  "dependencies": {
+    "table": "^6.8.0",
+    "treeify": "^1.1.0"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}
