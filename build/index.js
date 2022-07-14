@@ -9,12 +9,16 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
         step((generator = generator.apply(thisArg, _arguments || [])).next());
     });
 };
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
 Object.defineProperty(exports, "__esModule", { value: true });
 const child_process_1 = require("child_process");
 const table_1 = require("table");
 const treeify_1 = require("treeify");
+const yargs_1 = __importDefault(require("yargs"));
 require("./extension");
-function printDumpInfo() {
+function printAll() {
     var _a, _b, _c, _d, _e, _f;
     return __awaiter(this, void 0, void 0, function* () {
         // exec adb shell dumpsys window displays
@@ -64,18 +68,22 @@ function printDumpInfo() {
             frameworkRangeLines.sort((a, b) => a.start.index - b.start.index);
             frameworkRangeLines.forEach((v) => {
                 const firstFragmentLine = frameworkLines === null || frameworkLines === void 0 ? void 0 : frameworkLines.at(v.start.index + 1);
-                if (firstFragmentLine) {
+                if (firstFragmentLine && !isNullLine(firstFragmentLine)) {
                     frameworkFragmentLines.push({
-                        content: firstFragmentLine,
+                        content: handleFragmentLine(firstFragmentLine),
                         index: v.start.index + 1,
                     });
                 }
                 frameworkLines === null || frameworkLines === void 0 ? void 0 : frameworkLines.forEach((item, index) => {
                     if (firstFragmentLine &&
+                        !isNullLine(item) &&
                         spaceCount(item) == spaceCount(firstFragmentLine) &&
                         index > v.start.index + 1 &&
                         index < v.end.index) {
-                        frameworkFragmentLines.push({ content: item, index: index });
+                        frameworkFragmentLines.push({
+                            content: handleFragmentLine(item),
+                            index: index,
+                        });
                     }
                 });
             });
@@ -84,18 +92,22 @@ function printDumpInfo() {
                 androidxRangeLines.sort((a, b) => a.start.index - b.start.index);
                 androidxRangeLines.forEach((v) => {
                     const firstFragmentLine = androidxLines === null || androidxLines === void 0 ? void 0 : androidxLines.at(v.start.index + 1);
-                    if (firstFragmentLine) {
+                    if (firstFragmentLine && !isNullLine(firstFragmentLine)) {
                         androidxFragmentLines.push({
-                            content: firstFragmentLine,
+                            content: handleFragmentLine(firstFragmentLine),
                             index: v.start.index + 1,
                         });
                     }
                     androidxLines === null || androidxLines === void 0 ? void 0 : androidxLines.forEach((item, index) => {
                         if (firstFragmentLine &&
+                            !isNullLine(item) &&
                             spaceCount(item) == spaceCount(firstFragmentLine) &&
                             index > v.start.index + 1 &&
                             index < v.end.index) {
-                            androidxFragmentLines.push({ content: item, index: index });
+                            androidxFragmentLines.push({
+                                content: handleFragmentLine(item),
+                                index: index,
+                            });
                         }
                     });
                 });
@@ -151,14 +163,32 @@ function printDumpInfo() {
         }
     });
 }
+function handleFragmentLine(content) {
+    var _a;
+    if (content.length > 160) {
+        if (content.trimStart().startsWith("SupportRequestManagerFragment")) {
+            const parentIndex = content.indexOf("{parent=");
+            const parentText = content.substring(parentIndex);
+            return (content.substring(0, parentIndex) + ((_a = parentText.split(" ")) === null || _a === void 0 ? void 0 : _a.at(0)) + "}");
+        }
+        else {
+            return content.substring(0, 160);
+        }
+    }
+    return content;
+}
+function isNullLine(content) {
+    if (content.trim() == "null")
+        return true;
+    return false;
+}
 function toTreeArray(arr) {
     const result = Array();
     arr.forEach((v, index) => {
         result.push({
             id: index.toString(),
             content: v.content.trim(),
-            parentId: findParentIndex(arr.map((item) => item.content), v.content)
-                .toString(),
+            parentId: findParentIndex(arr.map((item) => item.content), v.content).toString(),
             children: null,
         });
     });
@@ -248,7 +278,7 @@ function spaceCount(value) {
 function findLines(lines, target) {
     const result = Array();
     lines.forEach((v, i) => {
-        if (v.indexOf(target) > 0) {
+        if (v.indexOf(target) >= 0) {
             result.push({
                 content: v,
                 index: i,
@@ -260,6 +290,15 @@ function findLines(lines, target) {
 function findFirstLines(lines, target) {
     var _a;
     return (_a = findLines(lines, target).at(0)) === null || _a === void 0 ? void 0 : _a.content;
+}
+function findFirstLineIndex(lines, target) {
+    const firstLine = findLines(lines, target).at(0);
+    if (firstLine == undefined) {
+        return -1;
+    }
+    else {
+        return firstLine.index;
+    }
 }
 function findLastLines(lines, target) {
     var _a;
@@ -289,15 +328,285 @@ function findRangeLines(lines, start, end) {
     return children;
 }
 let oldActivity = "";
-function main(onCurrentWindowChanged) {
+function onCurrentWindowChanged(f) {
     return __awaiter(this, void 0, void 0, function* () {
         while (true) {
             const currentActivity = (0, child_process_1.execSync)("adb shell dumpsys window displays | grep -E 'mCurrentFocus'", { encoding: "utf-8" });
             if (oldActivity != currentActivity) {
-                onCurrentWindowChanged();
+                f();
                 oldActivity = currentActivity;
             }
         }
     });
 }
-main(() => printDumpInfo());
+let oldFragments = "";
+function onFragmentsChanged(f) {
+    return __awaiter(this, void 0, void 0, function* () {
+        while (true) {
+            const activityOutput = (0, child_process_1.execSync)("adb shell dumpsys activity top", {
+                encoding: "utf-8",
+            });
+            const activityLines = activityOutput.split("\n");
+            const topActivityLine = findLastLines(activityLines, "TASK");
+            let sliceStart = activityLines.indexOf(topActivityLine);
+            let sliceEnd = activityLines.length - 1;
+            const topActivityLines = activityLines.slice(sliceStart, sliceEnd);
+            const frameworkFragmentSliceStart = findFirstLineIndex(topActivityLines, "Local Activity");
+            const frameworkFragmentSliceEnd = findFirstLineIndex(topActivityLines, "ViewRoot:");
+            const androidXFragmentSliceStart = findFirstLineIndex(topActivityLines, "Local FragmentActivity");
+            const androidXFragmentSliceEnd = topActivityLines.length - 1;
+            let frameworkFragmentLines = "";
+            if (frameworkFragmentSliceStart >= 0 &&
+                frameworkFragmentSliceEnd >= 0 &&
+                frameworkFragmentSliceStart < frameworkFragmentSliceEnd) {
+                frameworkFragmentLines = topActivityLines
+                    .slice(frameworkFragmentSliceStart, frameworkFragmentSliceEnd)
+                    .join("\n");
+            }
+            let androidXFragmentLines = "";
+            if (androidXFragmentSliceStart >= 0 &&
+                androidXFragmentSliceEnd >= 0 &&
+                androidXFragmentSliceStart < androidXFragmentSliceEnd) {
+                androidXFragmentLines = topActivityLines
+                    .slice(androidXFragmentSliceStart, androidXFragmentSliceEnd)
+                    .join("\n");
+            }
+            const fragmentLines = frameworkFragmentLines + "\n" + androidXFragmentLines;
+            if (oldFragments != fragmentLines) {
+                f();
+                oldFragments = fragmentLines;
+            }
+        }
+    });
+}
+function printCurrentActivityName() {
+    var _a, _b;
+    return __awaiter(this, void 0, void 0, function* () {
+        const windowOutput = (0, child_process_1.execSync)("adb shell dumpsys window displays", {
+            encoding: "utf-8",
+        });
+        const windowLines = windowOutput.split("\n");
+        const currentFocusLine = findFirstLines(windowLines, "mCurrentFocus");
+        const currentWindow = (_b = (_a = currentFocusLine === null || currentFocusLine === void 0 ? void 0 : currentFocusLine.split(" ")) === null || _a === void 0 ? void 0 : _a.last(0)) === null || _b === void 0 ? void 0 : _b.removeLast(1);
+        if (currentWindow) {
+            console.clear();
+            console.log(currentWindow);
+        }
+    });
+}
+function printCurrentActivityStack() {
+    var _a, _b, _c;
+    return __awaiter(this, void 0, void 0, function* () {
+        const windowOutput = (0, child_process_1.execSync)("adb shell dumpsys window displays", {
+            encoding: "utf-8",
+        });
+        const windowLines = windowOutput.split("\n");
+        const currentFocusAppLine = findFirstLines(windowLines, "mFocusedApp");
+        const currentActivity = (_a = currentFocusAppLine === null || currentFocusAppLine === void 0 ? void 0 : currentFocusAppLine.split(" ")) === null || _a === void 0 ? void 0 : _a.last(1);
+        const stackId = (_c = (_b = currentFocusAppLine === null || currentFocusAppLine === void 0 ? void 0 : currentFocusAppLine.split(" ")) === null || _b === void 0 ? void 0 : _b.last(0)) === null || _c === void 0 ? void 0 : _c.removeLast(1);
+        if (stackId != undefined) {
+            const stackLines = windowLines.filter((v) => {
+                const s = v.trim();
+                return s.startsWith("*") && s.indexOf(stackId) > 0;
+            });
+            const stacks = stackLines.map((v) => v.trim().split(" ")[3]);
+            if (stacks[0] != currentActivity) {
+                stacks.shift();
+            }
+            const statckTable = Array();
+            stacks.forEach((v) => statckTable.push([v]));
+            console.clear();
+            console.log((0, table_1.table)(statckTable));
+        }
+    });
+}
+function printCurrentActivityFragments() {
+    var _a, _b;
+    return __awaiter(this, void 0, void 0, function* () {
+        const windowOutput = (0, child_process_1.execSync)("adb shell dumpsys window displays", {
+            encoding: "utf-8",
+        });
+        const windowLines = windowOutput.split("\n");
+        const currentFocusAppLine = findFirstLines(windowLines, "mFocusedApp");
+        const currentActivity = (_a = currentFocusAppLine === null || currentFocusAppLine === void 0 ? void 0 : currentFocusAppLine.split(" ")) === null || _a === void 0 ? void 0 : _a.last(1);
+        const currentApp = (_b = currentActivity === null || currentActivity === void 0 ? void 0 : currentActivity.split("/")) === null || _b === void 0 ? void 0 : _b.at(0);
+        const frameworkFragmentLines = Array();
+        const androidxFragmentLines = Array();
+        if (currentApp != undefined) {
+            const activityOutput = (0, child_process_1.execSync)("adb shell dumpsys activity " + currentApp, { encoding: "utf-8" });
+            const activityLines = activityOutput.split("\n");
+            // 1. find top activity
+            const activitesLines = findLines(activityLines, "ACTIVITY");
+            let sliceStart = 0;
+            let sliceEnd = activityLines.length - 1;
+            activitesLines.forEach((v, index) => {
+                if (currentActivity && v.content.indexOf(currentActivity) > 0) {
+                    sliceStart = v.index;
+                    if (index + 1 <= activitesLines.length - 1) {
+                        sliceEnd = activitesLines[index + 1].index;
+                    }
+                }
+            });
+            // 2. cut out the top activity lines
+            const topActivityLines = activityLines.slice(sliceStart, sliceEnd);
+            // 3. split into framework fragments and androidx fragments
+            const splitLine = findLastLines(topActivityLines, "Local FragmentActivity");
+            let frameworkLines;
+            let androidxLines;
+            if (splitLine != undefined) {
+                const splitLineIndex = topActivityLines.indexOf(splitLine);
+                frameworkLines = topActivityLines.slice(0, splitLineIndex);
+                androidxLines = topActivityLines.slice(splitLineIndex);
+            }
+            else {
+                frameworkLines = topActivityLines;
+            }
+            // 4. find all children of between "Active Fragments" and "Added Fragments" node
+            const frameworkRangeLines = findRangeLines(frameworkLines, "Active Fragments", "Added Fragments");
+            frameworkRangeLines.sort((a, b) => a.start.index - b.start.index);
+            frameworkRangeLines.forEach((v) => {
+                const firstFragmentLine = frameworkLines === null || frameworkLines === void 0 ? void 0 : frameworkLines.at(v.start.index + 1);
+                if (firstFragmentLine && !isNullLine(firstFragmentLine)) {
+                    frameworkFragmentLines.push({
+                        content: handleFragmentLine(firstFragmentLine),
+                        index: v.start.index + 1,
+                    });
+                }
+                frameworkLines === null || frameworkLines === void 0 ? void 0 : frameworkLines.forEach((item, index) => {
+                    if (firstFragmentLine &&
+                        !isNullLine(item) &&
+                        spaceCount(item) == spaceCount(firstFragmentLine) &&
+                        index > v.start.index + 1 &&
+                        index < v.end.index) {
+                        frameworkFragmentLines.push({
+                            content: handleFragmentLine(item),
+                            index: index,
+                        });
+                    }
+                });
+            });
+            if (androidxLines) {
+                const androidxRangeLines = findRangeLines(androidxLines, "Active Fragments", "Added Fragments");
+                androidxRangeLines.sort((a, b) => a.start.index - b.start.index);
+                androidxRangeLines.forEach((v) => {
+                    const firstFragmentLine = androidxLines === null || androidxLines === void 0 ? void 0 : androidxLines.at(v.start.index + 1);
+                    if (firstFragmentLine && !isNullLine(firstFragmentLine)) {
+                        androidxFragmentLines.push({
+                            content: handleFragmentLine(firstFragmentLine),
+                            index: v.start.index + 1,
+                        });
+                    }
+                    androidxLines === null || androidxLines === void 0 ? void 0 : androidxLines.forEach((item, index) => {
+                        if (firstFragmentLine &&
+                            !isNullLine(item) &&
+                            spaceCount(item) == spaceCount(firstFragmentLine) &&
+                            index > v.start.index + 1 &&
+                            index < v.end.index) {
+                            androidxFragmentLines.push({
+                                content: handleFragmentLine(item),
+                                index: index,
+                            });
+                        }
+                    });
+                });
+            }
+        }
+        if (frameworkFragmentLines.length > 0 || androidxFragmentLines.length > 0) {
+            const fragmentTable = Array();
+            fragmentTable.push(["activity", currentActivity]);
+            if (frameworkFragmentLines.length > 0) {
+                frameworkFragmentLines.sort((a, b) => a.index - b.index);
+                fragmentTable.push([
+                    "framework fragments",
+                    (0, treeify_1.asTree)(toTreeObject(listToTree(toTreeArray(frameworkFragmentLines))), true),
+                ]);
+            }
+            if (androidxFragmentLines.length > 0) {
+                androidxFragmentLines.sort((a, b) => a.index - b.index);
+                fragmentTable.push([
+                    "androidx fragments",
+                    (0, treeify_1.asTree)(toTreeObject(listToTree(toTreeArray(androidxFragmentLines))), true),
+                ]);
+            }
+            console.clear();
+            console.log((0, table_1.table)(fragmentTable));
+        }
+        else {
+            console.clear();
+            const fragmentTable = Array();
+            fragmentTable.push(["activity", currentActivity]);
+            console.log((0, table_1.table)(fragmentTable));
+        }
+    });
+}
+const argv = (0, yargs_1.default)(process.argv.slice(2))
+    .help("help")
+    .alias("help", "h")
+    .options({
+    activity: {
+        type: "boolean",
+        default: true,
+        alias: "a",
+        description: "Show the current activity's name",
+    },
+    stack: {
+        type: "boolean",
+        default: false,
+        alias: "s",
+        description: "Show the current activity's stack",
+    },
+    fragment: {
+        type: "boolean",
+        default: false,
+        alias: "f",
+        description: "Show all fragments in the current activity",
+    },
+    watch: {
+        type: "boolean",
+        default: false,
+        alias: "w",
+        description: "Monitor activity or fragments changes in real time",
+    },
+    all: {
+        type: "boolean",
+        default: false,
+        alias: "A",
+        description: "Show all information, including the current activity name, activity stack and fragments",
+    },
+})
+    .locale("en")
+    .parseSync();
+if (argv.all) {
+    if (argv.watch) {
+        onCurrentWindowChanged(() => printAll());
+    }
+    else {
+        printAll();
+    }
+}
+else if (argv.fragment) {
+    if (argv.watch) {
+        onFragmentsChanged(() => printCurrentActivityFragments());
+    }
+    else {
+        printCurrentActivityFragments();
+    }
+}
+else if (argv.activity) {
+    if (argv.stack) {
+        if (argv.watch) {
+            onCurrentWindowChanged(() => printCurrentActivityStack());
+        }
+        else {
+            printCurrentActivityStack();
+        }
+    }
+    else {
+        if (argv.watch) {
+            onCurrentWindowChanged(() => printCurrentActivityName());
+        }
+        else {
+            printCurrentActivityName();
+        }
+    }
+}
