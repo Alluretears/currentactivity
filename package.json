@@ -8,7 +8,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/Alluretears/currentactivity.git"
+    "url": "git+https://github.com/dfshizhiqiang/currentactivity.git"
   },
   "keywords": [
     "current activity",
@@ -19,9 +19,9 @@
   "author": "Zech",
   "license": "MIT",
   "bugs": {
-    "url": "https://github.com/Alluretears/currentactivity/issues"
+    "url": "https://github.com/dfshizhiqiang/currentactivity/issues"
   },
-  "homepage": "https://github.com/Alluretears/currentactivity#readme",
+  "homepage": "https://github.com/dfshizhiqiang/currentactivity#readme",
   "bin": {
     "currentactivity": "./build/index.js"
   },

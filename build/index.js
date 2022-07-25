@@ -38,7 +38,7 @@ function printAll() {
             const activityOutput = (0, child_process_1.execSync)("adb shell dumpsys activity " + currentApp, { encoding: "utf-8" });
             const activityLines = activityOutput.split("\n");
             // 1. find top activity
-            const activitesLines = findLines(activityLines, "ACTIVITY");
+            const activitesLines = findLines(activityLines, "ACTIVITY ");
             let sliceStart = 0;
             let sliceEnd = activityLines.length - 1;
             activitesLines.forEach((v, index) => {
@@ -88,6 +88,16 @@ function printAll() {
                 });
             });
             if (androidxLines) {
+                const activeFragmentsLine = findFirstLines(androidxLines, "Active Fragments:");
+                if (activeFragmentsLine != undefined &&
+                    !activeFragmentsLine.endsWith("Active Fragments:")) {
+                    const androidxLinesText = androidxLines.join("\n");
+                    const activeFragmentsSliceIndex = androidxLinesText.indexOf("Active Fragments:") +
+                        "Active Fragments:".length;
+                    androidxLines = (androidxLinesText.slice(0, activeFragmentsSliceIndex) +
+                        "\n" +
+                        androidxLinesText.slice(activeFragmentsSliceIndex)).split("\n");
+                }
                 const androidxRangeLines = findRangeLines(androidxLines, "Active Fragments", "Added Fragments");
                 androidxRangeLines.sort((a, b) => a.start.index - b.start.index);
                 androidxRangeLines.forEach((v) => {
@@ -436,7 +446,7 @@ function printCurrentActivityFragments() {
             const activityOutput = (0, child_process_1.execSync)("adb shell dumpsys activity " + currentApp, { encoding: "utf-8" });
             const activityLines = activityOutput.split("\n");
             // 1. find top activity
-            const activitesLines = findLines(activityLines, "ACTIVITY");
+            const activitesLines = findLines(activityLines, "ACTIVITY ");
             let sliceStart = 0;
             let sliceEnd = activityLines.length - 1;
             activitesLines.forEach((v, index) => {
@@ -486,6 +496,16 @@ function printCurrentActivityFragments() {
                 });
             });
             if (androidxLines) {
+                const activeFragmentsLine = findFirstLines(androidxLines, "Active Fragments:");
+                if (activeFragmentsLine != undefined &&
+                    !activeFragmentsLine.endsWith("Active Fragments:")) {
+                    const androidxLinesText = androidxLines.join("\n");
+                    const activeFragmentsSliceIndex = androidxLinesText.indexOf("Active Fragments:") +
+                        "Active Fragments:".length;
+                    androidxLines = (androidxLinesText.slice(0, activeFragmentsSliceIndex) +
+                        "\n" +
+                        androidxLinesText.slice(activeFragmentsSliceIndex)).split("\n");
+                }
                 const androidxRangeLines = findRangeLines(androidxLines, "Active Fragments", "Added Fragments");
                 androidxRangeLines.sort((a, b) => a.start.index - b.start.index);
                 androidxRangeLines.forEach((v) => {

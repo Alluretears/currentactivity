@@ -30,7 +30,7 @@ async function printAll() {
     const activityLines = activityOutput.split("\n");
 
     // 1. find top activity
-    const activitesLines = findLines(activityLines, "ACTIVITY");
+    const activitesLines = findLines(activityLines, "ACTIVITY ");
     let sliceStart = 0;
     let sliceEnd = activityLines.length - 1;
     activitesLines.forEach((v, index) => {
@@ -87,6 +87,24 @@ async function printAll() {
     });
 
     if (androidxLines) {
+      const activeFragmentsLine = findFirstLines(
+        androidxLines,
+        "Active Fragments:"
+      );
+      if (
+        activeFragmentsLine != undefined &&
+        !activeFragmentsLine.endsWith("Active Fragments:")
+      ) {
+        const androidxLinesText = androidxLines.join("\n");
+        const activeFragmentsSliceIndex =
+          androidxLinesText.indexOf("Active Fragments:") +
+          "Active Fragments:".length;
+        androidxLines = (
+          androidxLinesText.slice(0, activeFragmentsSliceIndex) +
+          "\n" +
+          androidxLinesText.slice(activeFragmentsSliceIndex)
+        ).split("\n");
+      }
       const androidxRangeLines = findRangeLines(
         androidxLines,
         "Active Fragments",
@@ -511,7 +529,7 @@ async function printCurrentActivityFragments() {
     const activityLines = activityOutput.split("\n");
 
     // 1. find top activity
-    const activitesLines = findLines(activityLines, "ACTIVITY");
+    const activitesLines = findLines(activityLines, "ACTIVITY ");
     let sliceStart = 0;
     let sliceEnd = activityLines.length - 1;
     activitesLines.forEach((v, index) => {
@@ -568,6 +586,24 @@ async function printCurrentActivityFragments() {
     });
 
     if (androidxLines) {
+      const activeFragmentsLine = findFirstLines(
+        androidxLines,
+        "Active Fragments:"
+      );
+      if (
+        activeFragmentsLine != undefined &&
+        !activeFragmentsLine.endsWith("Active Fragments:")
+      ) {
+        const androidxLinesText = androidxLines.join("\n");
+        const activeFragmentsSliceIndex =
+          androidxLinesText.indexOf("Active Fragments:") +
+          "Active Fragments:".length;
+        androidxLines = (
+          androidxLinesText.slice(0, activeFragmentsSliceIndex) +
+          "\n" +
+          androidxLinesText.slice(activeFragmentsSliceIndex)
+        ).split("\n");
+      }
       const androidxRangeLines = findRangeLines(
         androidxLines,
         "Active Fragments",
