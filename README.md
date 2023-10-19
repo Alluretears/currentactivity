@@ -116,6 +116,9 @@ That's it.
 
 ## Changelog
 
+* 1.0.2
+  * Compatible with some Samsung phones 
+  
 * 1.0.1
   * Added more options for more flexible output
 

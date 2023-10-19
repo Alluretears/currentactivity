@@ -155,9 +155,12 @@ async function printAll() {
   if (stackId != undefined) {
     const stackLines = windowLines.filter((v) => {
       const s = v.trim();
-      return s.startsWith("*") && s.indexOf(stackId) > 0;
+      return (
+        (s.startsWith("*") || s.startsWith("Activity #")) &&
+        s.indexOf(stackId) > 0
+      );
     });
-    const stacks = stackLines.map((v) => v.trim().split(" ")[3]);
+    const stacks = stackLines.map((v) => v.trim().split(" ").last(1));
     if (stacks[0] != currentActivity) {
       stacks.shift();
     }
@@ -495,9 +498,12 @@ async function printCurrentActivityStack() {
   if (stackId != undefined) {
     const stackLines = windowLines.filter((v) => {
       const s = v.trim();
-      return s.startsWith("*") && s.indexOf(stackId) > 0;
+      return (
+        (s.startsWith("*") || s.startsWith("Activity #")) &&
+        s.indexOf(stackId) > 0
+      );
     });
-    const stacks = stackLines.map((v) => v.trim().split(" ")[3]);
+    const stacks = stackLines.map((v) => v.trim().split(" ").last(1));
     if (stacks[0] != currentActivity) {
       stacks.shift();
     }
